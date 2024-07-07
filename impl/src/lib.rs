@@ -2,8 +2,8 @@ use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_str, punctuated::Punctuated, token::Comma, GenericArgument,
-    GenericParam, Ident, Item, ItemStruct, Meta, Type, Visibility, WhereClause,
+    parse_macro_input, parse_quote, parse_str, punctuated::Punctuated, token::Comma, Attribute,
+    GenericArgument, GenericParam, Ident, Item, ItemStruct, Meta, Type, Visibility, WhereClause,
 };
 
 struct ItemEnumOrStruct {
@@ -41,7 +41,12 @@ pub fn holder_derive(input: TokenStream) -> TokenStream {
     let mut_fn_name = format!("{}_mut", fn_name);
     let fn_name: Ident = parse_str(fn_name.as_str()).unwrap();
     let mut_fn_name: Ident = parse_str(mut_fn_name.as_str()).unwrap();
+    #[cfg(feature = "fast_delegate")]
+    let attr: Attribute = parse_quote!(#[fast_delegate::delegate]);
+    #[cfg(not(feature = "fast_delegate"))]
+    let attr: Option<Attribute> = None;
     quote! {
+        #attr
         #struct_visibility trait #holder_trait_name<#struct_generic> #struct_where_clause {
             fn #fn_name(&self) -> &#struct_name<#struct_generic_without_bounds>;
             fn #mut_fn_name(&mut self) -> &mut #struct_name<#struct_generic_without_bounds>;

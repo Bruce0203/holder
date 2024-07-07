@@ -20,3 +20,6 @@ quote = "1.0.36"
 syn = { version = "2.0.68", features = ["full"] }
 proc-macro2 = "1.0.86"
 convert_case = "0.6.0"
+
+[features]
+fast_delegate = []
