@@ -3,23 +3,44 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_str, punctuated::Punctuated, token::Comma, GenericArgument,
-    GenericParam, Ident, ItemStruct, Meta, Type,
+    GenericParam, Ident, Item, ItemStruct, Meta, Type, Visibility, WhereClause,
 };
 
+struct ItemEnumOrStruct {
+    ident: Ident,
+    generic_params: Punctuated<GenericParam, Comma>,
+    where_clause: Option<WhereClause>,
+    vis: Visibility,
+}
 #[proc_macro_derive(Holdable)]
 pub fn holder_derive(input: TokenStream) -> TokenStream {
-    let item_struct = parse_macro_input!(input as ItemStruct);
-    let struct_name = &item_struct.ident;
+    let item = parse_macro_input!(input as Item);
+    let item = match item {
+        Item::Enum(value) => ItemEnumOrStruct {
+            ident: value.ident,
+            generic_params: value.generics.params,
+            where_clause: value.generics.where_clause,
+            vis: value.vis,
+        },
+        Item::Struct(value) => ItemEnumOrStruct {
+            ident: value.ident,
+            generic_params: value.generics.params,
+            where_clause: value.generics.where_clause,
+            vis: value.vis,
+        },
+        _ => panic!("unimplemented item type"),
+    };
+    let struct_name = &item.ident;
+    let struct_generic = item.generic_params;
+    let struct_where_clause = item.where_clause;
+    let struct_visibility = item.vis;
+    let mut struct_generic_without_bounds = struct_generic.clone();
+    remove_bounds_from_generic(&mut struct_generic_without_bounds);
     let holder_trait_name = format_ident!("{}Holder", struct_name);
     let fn_name = struct_name.to_string().clone().to_case(Case::Snake);
     let mut_fn_name = format!("{}_mut", fn_name);
     let fn_name: Ident = parse_str(fn_name.as_str()).unwrap();
     let mut_fn_name: Ident = parse_str(mut_fn_name.as_str()).unwrap();
-    let struct_generic = item_struct.generics.params;
-    let mut struct_generic_without_bounds = struct_generic.clone();
-    remove_bounds_from_generic(&mut struct_generic_without_bounds);
-    let struct_where_clause = item_struct.generics.where_clause;
-    let struct_visibility = item_struct.vis;
     quote! {
         #struct_visibility trait #holder_trait_name<#struct_generic> #struct_where_clause {
             fn #fn_name(&self) -> &#struct_name<#struct_generic_without_bounds>;
