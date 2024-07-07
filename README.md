@@ -20,4 +20,8 @@ fn holder_test() {
     let token: &Token = wrapper.token();
     let token_mut: &mut Token = wrapper.token_mut();
 }
+
+fn holder_test_2<T: TokenHolder>(mut holder: T) {
+    *holder.token_mut() = Token(123);
+}
 ```
