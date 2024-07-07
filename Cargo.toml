@@ -1,0 +1,28 @@
+[package]
+name = "holder"
+version.workspace = true  
+edition.workspace = true
+author.workspace = true 
+description.workspace = true
+repository.workspace = true 
+license.workspace = true
+readme = "./README.md"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+]
+
+[workspace]
+members = ["impl"]
+
+[workspace.package]
+version = "0.1.0"
+description = "getter setter auto gen with holder trait"
+edition = "2021"
+author = "Bruce0203 <brucefreedy@gmail.com>"
+repository = "https://github.com/Bruce0203/holder"
+license = "MIT"
+
+[dependencies]
+holder_derive = { path = "./impl", version = "0.1.0" }
+
