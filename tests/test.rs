@@ -21,7 +21,7 @@ where
 {
     #[hold]
     value: Token<i32>,
-    #[hold]
+    #[hold(GameStateHolder)]
     game_state: GameState,
     _marker: PhantomData<T>,
 }

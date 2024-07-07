@@ -68,8 +68,12 @@ pub fn holder(input: TokenStream) -> TokenStream {
         .fields
         .iter()
         .filter_map(|field| {
+            let mut holder_trait_name_in_attr: Option<Ident> = None;
             let is_holdable_field = field.attrs.iter().any(|attr| match &attr.meta {
-                Meta::List(list) => list.path.is_ident("hold"),
+                Meta::List(list) => {
+                    holder_trait_name_in_attr = attr.parse_args().unwrap();
+                    list.path.is_ident("hold")
+                },
                 Meta::Path(path) => path.is_ident("hold"),
                 _ => panic!("unimplemented attr meta type"),
             });
@@ -86,8 +90,8 @@ pub fn holder(input: TokenStream) -> TokenStream {
             let fn_name: Ident = parse_str(fn_name.as_str()).unwrap();
             let mut_fn_name = format!("{}_mut", fn_name.to_string());
             let mut_fn_name: Ident = parse_str(mut_fn_name.as_str()).unwrap();
-            let holder_trait_name = format!("{}Holder", field_type_ident);
-            let holder_trait_name: Ident = parse_str(holder_trait_name.as_str()).unwrap();
+
+            let holder_trait_name = holder_trait_name_in_attr.or_else(|| Some(parse_str(format!("{}Holder", field_type_ident).as_str()).unwrap()));
             let field_bounds = get_generic_by_type(field_type);
             Some(
                 quote! {
