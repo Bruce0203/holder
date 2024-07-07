@@ -16,7 +16,7 @@ include = [
 members = ["impl"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 description = "getter setter auto gen with holder trait"
 edition = "2021"
 author = "Bruce0203 <brucefreedy@gmail.com>"
@@ -24,7 +24,7 @@ repository = "https://github.com/Bruce0203/holder"
 license = "MIT"
 
 [dependencies]
-holder_derive = { path = "./impl", version = "0.3.0" }
+holder_derive = { path = "./impl", version = "0.4.0" }
 
 [features]
 fast_delegate = ["holder_derive/fast_delegate"]
