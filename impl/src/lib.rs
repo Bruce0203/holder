@@ -34,7 +34,7 @@ pub fn holder_derive(input: TokenStream) -> TokenStream {
     };
     let struct_name = &item.ident;
     let struct_generic = item.generic_params;
-    let struct_where_clause = item.where_clause;
+    let struct_where_clause = item.where_clause.map(|v| v.predicates);
     let struct_visibility = item.vis;
     let mut struct_generic_without_bounds = struct_generic.clone();
     remove_bounds_from_generic(&mut struct_generic_without_bounds);
@@ -49,15 +49,26 @@ pub fn holder_derive(input: TokenStream) -> TokenStream {
     let attr: Option<Attribute> = None;
     quote! {
         #attr
-        #struct_visibility trait #holder_trait_name<#struct_generic> #struct_where_clause {
+        #struct_visibility trait #holder_trait_name<#struct_generic> where #struct_where_clause {
             fn #fn_name(&self) -> &#struct_name<#struct_generic_without_bounds>;
             fn #mut_fn_name(&mut self) -> &mut #struct_name<#struct_generic_without_bounds>;
+        }
+
+        impl<__Holder, #struct_generic> #holder_trait_name<#struct_generic_without_bounds> for __Holder
+            where __Holder: holder::Holder<#struct_name<#struct_generic_without_bounds>>, #struct_where_clause {
+
+            fn #fn_name(&self) -> &#struct_name<#struct_generic_without_bounds> {
+                self.get()
+            }
+            fn #mut_fn_name(&mut self) -> &mut #struct_name<#struct_generic_without_bounds> {
+                self.get_mut()
+            }
         }
     }
     .into()
 }
 
-#[proc_macro_derive(Holder, attributes(hold))]
+#[proc_macro_derive(Holder, attributes(hold, hold_generic))]
 pub fn holder(input: TokenStream) -> TokenStream {
     let item_struct = parse_macro_input!(input as ItemStruct);
     let struct_name = &item_struct.ident;
@@ -70,18 +81,21 @@ pub fn holder(input: TokenStream) -> TokenStream {
         .fields
         .iter()
         .filter_map(|field| {
-            let mut holder_trait_name_in_attr: Option<Ident> = None;
-            let is_holdable_field = field.attrs.iter().any(|attr| match &attr.meta {
-                Meta::List(list) => {
-                    if list.path.is_ident("hold") {
-                        holder_trait_name_in_attr = attr.parse_args().unwrap();
-                        true
-                    } else {
-                        false
-                    }
-                },
-                Meta::Path(path) => path.is_ident("hold"),
-                _ => panic!("unimplemented attr meta type"),
+            let mut is_generic_holder: bool = false;
+            let is_holdable_field = field.attrs.iter().any(|attr| {
+                let path = match &attr.meta {
+                    Meta::List(list) => list.path.clone(),
+                    Meta::Path(path) => path.clone(),
+                    _ => panic!("unimplemented attr meta type"),
+                };
+                if path.is_ident("hold") {
+                    true
+                } else if path.is_ident("hold_generic") {
+                    is_generic_holder = true;
+                    true
+                } else {
+                    false
+                }
             });
             if !is_holdable_field {
                 return Option::<proc_macro2::TokenStream>::None;
@@ -91,18 +105,36 @@ pub fn holder(input: TokenStream) -> TokenStream {
                 .clone()
                 .expect("unimplemented non field name case");
             let field_type_ident = get_ident_by_type(&field.ty);
-            let field_type = &field.ty;
-            let holder_trait_name = holder_trait_name_in_attr
-                .or_else(|| Some(parse_str(format!("{}{HOLDER_SUFFIX}", field_type_ident).as_str()).unwrap())).unwrap();
+
+            let holder_trait_name: Ident = parse_str(format!("{}{HOLDER_SUFFIX}", field_type_ident).as_str()).unwrap();
+
             let mut type_name = holder_trait_name.clone().to_string();
             type_name.truncate(holder_trait_name.to_string().len() - HOLDER_SUFFIX.len());
-            let fn_name = type_name.to_case(Case::Snake);
+
+            let field_type = &field.ty;
             let field_type_name: Ident = parse_str(type_name.as_str()).unwrap();
+            let field_bounds = get_generic_by_type(field_type);
+
+            let fn_name = type_name.to_case(Case::Snake);
             let fn_name: Ident = parse_str(fn_name.as_str()).unwrap();
             let mut_fn_name = format!("{}_mut", fn_name.to_string());
             let mut_fn_name: Ident = parse_str(mut_fn_name.as_str()).unwrap();
-            let field_bounds = get_generic_by_type(field_type);
-            Some(
+
+            Some(if is_generic_holder {
+                quote! {
+                    impl<#struct_generic> 
+                        holder::Holder<#field_type_name<#field_bounds>> for #struct_name<#struct_generic_without_bounds> #struct_where_clause {
+                        fn get(&self) -> &#field_type_name<#field_bounds> {
+                            &self.#field_name
+                        }
+
+                        fn get_mut(&mut self) -> &mut #field_type_name<#field_bounds> {
+                            &mut self.#field_name
+                        }
+                    }
+                }
+                .into()
+            } else {
                 quote! {
                     impl<#struct_generic>
                         #holder_trait_name<#field_bounds> for #struct_name<#struct_generic_without_bounds> #struct_where_clause {
@@ -114,8 +146,8 @@ pub fn holder(input: TokenStream) -> TokenStream {
                         }
                     }
                 }
-                .into(),
-            )
+                .into()
+            })
         })
         .collect();
     quote! {#(#quotes)*}.into()

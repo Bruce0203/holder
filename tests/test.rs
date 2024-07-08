@@ -12,6 +12,9 @@ fn main() {
     let token: &Token<i32> = wrapper.token();
     let game_state: &GameState = wrapper.game_state();
     let game_state_mut: &mut GameState = wrapper.game_state_mut();
+
+    let value = Wrapper2 { value: MyStruct };
+    let v: &MyStruct = value.my_struct();
 }
 
 #[derive(Holder)]
@@ -36,3 +39,12 @@ enum GameState {
     Idle,
     Play,
 }
+
+#[derive(Holder)]
+struct Wrapper2<T> {
+    #[hold_generic]
+    value: T,
+}
+
+#[derive(Holdable)]
+struct MyStruct;
