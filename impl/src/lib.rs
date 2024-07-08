@@ -6,6 +6,8 @@ use syn::{
     GenericArgument, GenericParam, Ident, Item, ItemStruct, Meta, Type, Visibility, WhereClause,
 };
 
+const HOLDER_SUFFIX: &'static str = "Holder";
+
 struct ItemEnumOrStruct {
     ident: Ident,
     generic_params: Punctuated<GenericParam, Comma>,
@@ -36,7 +38,7 @@ pub fn holder_derive(input: TokenStream) -> TokenStream {
     let struct_visibility = item.vis;
     let mut struct_generic_without_bounds = struct_generic.clone();
     remove_bounds_from_generic(&mut struct_generic_without_bounds);
-    let holder_trait_name = format_ident!("{}Holder", struct_name);
+    let holder_trait_name = format_ident!("{}{HOLDER_SUFFIX}", struct_name);
     let fn_name = struct_name.to_string().clone().to_case(Case::Snake);
     let mut_fn_name = format!("{}_mut", fn_name);
     let fn_name: Ident = parse_str(fn_name.as_str()).unwrap();
@@ -90,12 +92,14 @@ pub fn holder(input: TokenStream) -> TokenStream {
                 .expect("unimplemented non field name case");
             let field_type_ident = get_ident_by_type(&field.ty);
             let field_type = &field.ty;
-            let fn_name = field_type_ident.to_string().clone().to_case(Case::Snake);
+            let holder_trait_name = holder_trait_name_in_attr
+                .or_else(|| Some(parse_str(format!("{}{HOLDER_SUFFIX}", field_type_ident).as_str()).unwrap())).unwrap();
+            let mut fn_name = holder_trait_name.clone().to_string();
+            fn_name.truncate(holder_trait_name.to_string().len() - HOLDER_SUFFIX.len());
+            let fn_name = fn_name.to_case(Case::Snake);
             let fn_name: Ident = parse_str(fn_name.as_str()).unwrap();
             let mut_fn_name = format!("{}_mut", fn_name.to_string());
             let mut_fn_name: Ident = parse_str(mut_fn_name.as_str()).unwrap();
-            let holder_trait_name = holder_trait_name_in_attr
-                .or_else(|| Some(parse_str(format!("{}Holder", field_type_ident).as_str()).unwrap()));
             let field_bounds = get_generic_by_type(field_type);
             Some(
                 quote! {
