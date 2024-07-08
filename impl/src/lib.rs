@@ -2,8 +2,8 @@ use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, parse_str, punctuated::Punctuated, token::Comma, Attribute,
-    GenericArgument, GenericParam, Ident, Item, ItemStruct, Meta, Type, Visibility, WhereClause,
+    parse_macro_input, parse_str, punctuated::Punctuated, token::Comma, Attribute, GenericArgument,
+    GenericParam, Ident, Item, ItemStruct, Meta, Type, Visibility, WhereClause,
 };
 
 const HOLDER_SUFFIX: &'static str = "Holder";
@@ -94,9 +94,10 @@ pub fn holder(input: TokenStream) -> TokenStream {
             let field_type = &field.ty;
             let holder_trait_name = holder_trait_name_in_attr
                 .or_else(|| Some(parse_str(format!("{}{HOLDER_SUFFIX}", field_type_ident).as_str()).unwrap())).unwrap();
-            let mut fn_name = holder_trait_name.clone().to_string();
-            fn_name.truncate(holder_trait_name.to_string().len() - HOLDER_SUFFIX.len());
-            let fn_name = fn_name.to_case(Case::Snake);
+            let mut type_name = holder_trait_name.clone().to_string();
+            type_name.truncate(holder_trait_name.to_string().len() - HOLDER_SUFFIX.len());
+            let fn_name = type_name.to_case(Case::Snake);
+            let field_type_name: Ident = parse_str(type_name.as_str()).unwrap();
             let fn_name: Ident = parse_str(fn_name.as_str()).unwrap();
             let mut_fn_name = format!("{}_mut", fn_name.to_string());
             let mut_fn_name: Ident = parse_str(mut_fn_name.as_str()).unwrap();
@@ -105,10 +106,10 @@ pub fn holder(input: TokenStream) -> TokenStream {
                 quote! {
                     impl<#struct_generic>
                         #holder_trait_name<#field_bounds> for #struct_name<#struct_generic_without_bounds> #struct_where_clause {
-                        fn #fn_name(&self) -> &#field_type {
+                        fn #fn_name(&self) -> &#field_type_name<#field_bounds> {
                             &self.#field_name
                         }
-                        fn #mut_fn_name(&mut self) -> &mut #field_type {
+                        fn #mut_fn_name(&mut self) -> &mut #field_type_name<#field_bounds> {
                             &mut self.#field_name
                         }
                     }
